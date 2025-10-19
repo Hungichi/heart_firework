@@ -1,59 +1,66 @@
-/* Reset giao diện */
+/* ==== RESET ==== */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body, html {
+html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  background: radial-gradient(circle at center, #160018, #08000F, #000000);
   font-family: 'Poppins', sans-serif;
-  background: radial-gradient(circle at center, #1a0026, #000000 80%);
-  position: relative;
 }
 
-/* Galaxy stars effect */
+/* Noise galaxy overlay */
 body::before {
   content: "";
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: url('https://i.imgur.com/3ZQ3ZqV.png'); /* overlay sao */
-  opacity: 0.25;
+  inset: 0;
   pointer-events: none;
+  background-image: url("https://grainy-gradients.vercel.app/noise.svg");
+  opacity: 0.07;
+  mix-blend-mode: screen;
 }
 
-/* Canvas Three.js full màn */
+/* Canvas full màn hình */
 #heartCanvas {
   position: absolute;
   top: 0;
   left: 0;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   display: block;
+  z-index: 1;
 }
 
-/* Floating text */
-.floating-text {
+/* Text caption dưới */
+#textOverlay {
   position: absolute;
-  top: 10%;
-  left: 50%;
-  transform: translateX(-50%);
-  font-size: 2.4rem;
-  font-weight: 600;
-  color: #ff66cc;
-  text-shadow: 0 0 10px #ff4dc4, 0 0 20px #ff4dc4;
-  animation: float 3s ease-in-out infinite;
+  bottom: 3vh;
+  width: 100%;
+  text-align: center;
   z-index: 10;
+  pointer-events: none;
+  font-size: 2.4vh;
+  background: linear-gradient(90deg, #ff7adf, #ffa8f5, #ff8ad8, #ff50c2, #ffa8f5);
+  background-size: 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: neonGlow 4s infinite linear, gradientShift 6s infinite ease-in-out;
+  letter-spacing: 1px;
 }
 
-/* Hiệu ứng bay lên xuống */
-@keyframes float {
-  0% { transform: translate(-50%, -10px); opacity: 0.85; }
-  50% { transform: translate(-50%, 10px); opacity: 1; }
-  100% { transform: translate(-50%, -10px); opacity: 0.85; }
+/* Hiệu ứng glow */
+@keyframes neonGlow {
+  0% { text-shadow: 0 0 6px #ff6dd6cc; }
+  50% { text-shadow: 0 0 22px #ff6dd6; }
+  100% { text-shadow: 0 0 6px #ff6dd6cc; }
+}
+
+/* Gradient shift trên chữ overlay */
+@keyframes gradientShift {
+  0% { background-position: 0%; }
+  100% { background-position: 200%; }
 }
