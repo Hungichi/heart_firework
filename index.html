@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Heart Fireworks — Happy Women's Day</title>
+  <style>
+    html,body { height:100%; margin:0; background:#000; overflow:hidden; }
+    #container { width:100%; height:100vh; position:relative; }
+    #hint {
+      position: absolute;
+      left:12px; top:12px;
+      color: rgba(255,255,255,0.85);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      font-size: 14px;
+      z-index: 5;
+      user-select:none;
+    }
+    a.small { color: rgba(255,255,255,0.6); text-decoration:none; font-size:12px }
+  </style>
+</head>
+<body>
+  <div id="container"></div>
+  <div id="hint">Happy Women's Day ✨ — Refresh to replay. Hosted: Vercel ready.</div>
+
+  <script type="module">
+  // Three.js Heart Fireworks (ES module). No audio.
+  import * as THREE from "https://unpkg.com/three@0.158.0/build/three.module.js";
+  import { OrbitControls } from 'https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js';
+  import { Reflector } from 'https://unpkg.com/three@0.158.0/examples/jsm/objects/Reflector.js';
+
+  // ----- basic scene -----
+  const container = document.getElementById('container');
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x000000, 0.0006);
+
+  const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.1, 2000);
+  camera.position.set(0, 40, 140);
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+  renderer.setPixelRatio(window.devicePixelRatio || 1);
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  container.appendChild(renderer.domElement);
+
+  const controls = new OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.autoRotate = false;
+  controls.minDistance = 30;
+  controls.maxDistance = 400;
+
+  // lights
+  const hemi = new THREE.HemisphereLight(0xffffff, 0x080820, 0.7);
+  scene.add(hemi);
+  const dir = new THREE.DirectionalLight(0xffffff, 0.8);
+  dir.position.set(0, 100, 20);
+  scene.add(dir);
+
+  // star background (points)
+  {
+    const starsGeo = new THREE.BufferGeometry();
+    const starCount = 800;
+    const positions = new Float32Array(starCount * 3);
+    for (let i=0;i<starCount;i++){
+      positions[i*3] = (Math.random()*2-1) * 1000;
+      positions[i*3+1] = (Math.random()*2-1) * 600 + 50;
+      positions[i*3+2] = (Math.random()*2-1) * 1000;
+    }
+    starsGeo.setAttribute('position', new THREE.BufferAttribute(positions,3));
+    const starsMat = new THREE.PointsMaterial({ size: 0.8, sizeAttenuation:true, color:0xffffff, transparent:true, opacity:0.9 });
+    const stars = new THREE.Points(starsGeo, starsMat);
+    scene.add(stars);
+  }
+
+  // Reflective ground plane using Reflector
+  const groundSize = 2000;
+  const groundGeometry = new THREE.PlaneGeometry(groundSize, groundSize);
+  const groundMirror = new Reflector(groundGeometry, {
+    clipBias: 0.003,
+    textureWidth: Math.floor(innerWidth * devicePixelRatio),
+    textureHeight: Math.floor(innerHeight * devicePixelRatio),
+    color: 0x111111
+  });
+  groundMirror.rotation.x = - Math.PI / 2;
+  groundMirror.position.y = -18;
+  scene.add(groundMirror);
+
+  // ---------- Particles (heart) ----------
+  // We'll create a point cloud of N particles placed initially on a parametric heart surface
+  const PARTICLE_COUNT = 2200;
+  const positions = new Float32Array(PARTICLE_COUNT * 3);
+  const velocities = new Float32Array(PARTICLE_COUNT * 3);
+  const startPositions = new Float32Array(PARTICLE_COUNT * 3); // store for subtle reassembly
+  const colors = new Float32Array(PARTICLE_COUNT * 3);
+
+  // heart param function (scaled)
+  function heartParam(t) {
+    // t from 0..2PI
+    const x = 16 * Math.pow(Math.sin(t), 3);
+    const y = 13 * Math.cos(t) - 5 * Math.cos(2*t) - 2 * Math.cos(3*t) - Math.cos(4*t);
+    return { x, y };
+  }
+
+  // Fill positions along many t and random jitter for spread
+  const centerX = 0, centerY = 10;
+  const scale = 1.8; // base scale
+  for (let i=0;i<PARTICLE_COUNT;i++){
+    // sample t with bias so inner gets filled
+    const t = Math.random() * Math.PI * 2;
+    const r = 0.7 + Math.random()*0.9; // radial jitter
+    const p = heartParam(t);
+    const x = (p.x * scale * r) + (Math.random()-0.5)*1.4;
+    const y = (p.y * scale * r) + (Math.random()-0.5)*1.4;
+    const z = (Math.random()-0.5) * 18; // depth
+    const idx = i*3;
+    positions[idx] = x + centerX;
+    positions[idx+1] = y + centerY;
+    positions[idx+2] = z;
+    startPositions[idx] = positions[idx];
+    startPositions[idx+1] = positions[idx+1];
+    startPositions[idx+2] = positions[idx+2];
+    // velocities initial tiny
+    velocities[idx] = (Math.random()-0.5) * 0.02;
+    velocities[idx+1] = (Math.random()-0.5) * 0.02;
+    velocities[idx+2] = (Math.random()-0.5) * 0.02;
+    // color gradient pinkish
+    const hue = 330/360; // pink
+    const col = new THREE.Color().setHSL(hue, 0.75, 0.55 - Math.random()*0.08);
+    colors[idx] = col.r; colors[idx+1] = col.g; colors[idx+2] = col.b;
+  }
+
+  const particleGeo = new THREE.BufferGeometry();
+  particleGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  particleGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+  // create a small round sprite for each point via a generated canvas texture
+  function makeSpriteTexture() {
+    const size = 128;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    const g = ctx.createRadialGradient(size/2, size/2, 4, size/2, size/2, size/2);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.2, 'rgba(255,180,200,0.9)');
+    g.addColorStop(0.5, 'rgba(255,100,140,0.65)');
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,size,size);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    return tex;
+  }
+  const spriteTex = makeSpriteTexture();
+
+  const particleMat = new THREE.PointsMaterial({
+    size: 1.8,
+    vertexColors: true,
+    map: spriteTex,
+    transparent: true,
+    depthTest: true,
+    depthWrite: false,
+    sizeAttenuation: true,
+    blending: THREE.AdditiveBlending
+  });
+
+  const particles = new THREE.Points(particleGeo, particleMat);
+  particles.position.set(0,0,0);
+  scene.add(particles);
+
+  // Explosion dynamics controls
+  let explosion = { running: true, time: 0, intensity: 1.0 };
+  // we'll compute velocities for an outward explosion from the heart center
+  // initialize velocities more impressively on first frames
+  function triggerExplosion(power=1.0) {
+    for (let i=0;i<PARTICLE_COUNT;i++){
+      const idx = i*3;
+      // vector from center
+      const px = positions[idx], py = positions[idx+1], pz = positions[idx+2];
+      // direction away from heart center (approx)
+      const dirx = px;
+      const diry = py - centerY;
+      const dirz = pz;
+      const len = Math.sqrt(dirx*dirx + diry*diry + dirz*dirz) + 0.0001;
+      const nx = dirx / len, ny = diry / len, nz = dirz / len;
+      // random extra spread
+      const spread = 6 + Math.random()*18;
+      velocities[idx] = nx * spread * (0.6 + Math.random()*0.9) * power;
+      velocities[idx+1] = ny * spread * (0.6 + Math.random()*0.9) * power - (4 + Math.random()*6); // small upward bias negative gravity later
+      velocities[idx+2] = nz * spread * (0.6 + Math.random()*0.9) * power;
+    }
+    explosion.running = true;
+    explosion.time = 0;
+  }
+
+  // trigger one initial explosion with moderate power
+  triggerExplosion(1.0);
+
+  // Text sprite: create canvas texture with given text
+  function makeTextSprite(message, opts = {}) {
+    const font = opts.font || "40px serif";
+    const padding = opts.padding || 10;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    ctx.font = font;
+    // measure
+    const metrics = ctx.measureText(message);
+    const textWidth = Math.ceil(metrics.width);
+    const width = textWidth + padding*2;
+    const height = 64 + padding*2;
+    canvas.width = width;
+    canvas.height = height;
+    // draw
+    ctx.font = font;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // background transparent
+    // glow
+    ctx.shadowColor = 'rgba(255,120,160,0.85)';
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = 'white';
+    ctx.fillText(message, width/2, height/2);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.needsUpdate = true;
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: true });
+    const sprite = new THREE.Sprite(mat);
+    const scaleFactor = opts.scale || 0.8;
+    sprite.scale.set(width * 0.06 * scaleFactor, height * 0.06 * scaleFactor, 1);
+    return sprite;
+  }
+
+  // create multiple rotating text sprites under heart
+  const textGroup = new THREE.Group();
+  const textMessages = ["Happy Women's Day"];
+  for (let i=0;i<8;i++){
+    const msg = textMessages[0];
+    const sp = makeTextSprite(msg, { font: '28px Arial', scale: 1.0 });
+    const angle = (i / 8) * Math.PI * 2;
+    sp.position.set(Math.cos(angle) * 28, -10, Math.sin(angle) * 28);
+    sp.lookAt(camera.position);
+    textGroup.add(sp);
+  }
+  scene.add(textGroup);
+
+  // helper to make occasional comets
+  const cometGeo = new THREE.BufferGeometry();
+  cometGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(3), 3));
+  const cometMat = new THREE.PointsMaterial({ size: 6, map: spriteTex, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false });
+  const comet = new THREE.Points(cometGeo, cometMat);
+  scene.add(comet);
+  let cometPos = new THREE.Vector3(0,200, -200);
+  let cometDir = new THREE.Vector3(0, -1, 0.6).normalize();
+
+  // animation loop
+  let last = performance.now();
+  function animate(now) {
+    const dt = Math.min(0.06, (now - last)/1000);
+    last = now;
+
+    // update particle velocities + positions
+    const posAttr = particleGeo.getAttribute('position');
+    for (let i=0;i<PARTICLE_COUNT;i++){
+      const idx = i*3;
+      // apply gravity and drag
+      velocities[idx+1] += 9.8 * dt * 0.5; // weaker gravity
+      velocities[idx] *= (1 - 0.02 * dt * 60);
+      velocities[idx+1] *= (1 - 0.01 * dt * 60);
+      velocities[idx+2] *= (1 - 0.02 * dt * 60);
+      positions[idx] += velocities[idx] * dt;
+      positions[idx+1] += velocities[idx+1] * dt;
+      positions[idx+2] += velocities[idx+2] * dt;
+      // slowly fade back to center after explosion time
+      if (explosion.time > 3.2) {
+        // lerp back slowly
+        positions[idx] += (startPositions[idx] - positions[idx]) * 0.02 * dt * 60;
+        positions[idx+1] += (startPositions[idx+1] - positions[idx+1]) * 0.02 * dt * 60;
+        positions[idx+2] += (startPositions[idx+2] - positions[idx+2]) * 0.02 * dt * 60;
+      }
+      // clamp below ground
+      if (positions[idx+1] < -50) positions[idx+1] = -50 + Math.random()*4;
+    }
+    posAttr.needsUpdate = true;
+    explosion.time += dt;
+
+    // occasionally retrigger gentle explosions to keep motion
+    if (Math.random() < 0.008 && explosion.time > 0.5) {
+      triggerExplosion(0.9 + Math.random()*0.9);
+    }
+
+    // rotate text group around Y
+    textGroup.rotation.y += 0.3 * dt;
+
+    // rotate and simulate comet
+    cometPos.addScaledVector(cometDir, dt * 160);
+    if (cometPos.y < -30 || cometPos.x > 500 || cometPos.z > 500) {
+      cometPos.set((Math.random()*2-1)*250, 200 + Math.random()*120, -200 + Math.random()*200);
+      cometDir.set((Math.random()-0.5), -1.2 - Math.random()*0.6, (Math.random()-0.5)).normalize();
+    }
+    cometGeo.attributes.position.array[0] = cometPos.x;
+    cometGeo.attributes.position.array[1] = cometPos.y;
+    cometGeo.attributes.position.array[2] = cometPos.z;
+    cometGeo.attributes.position.needsUpdate = true;
+
+    controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
+  // handle resize
+  window.addEventListener('resize', () => {
+    camera.aspect = innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+  });
+
+  // allow click/tap to trigger stronger explosion
+  window.addEventListener('pointerdown', (e) => {
+    // stronger burst
+    triggerExplosion(1.8 + Math.random()*1.4);
+  });
+
+  // Extra: keyboard R to reset
+  window.addEventListener('keydown', (e) => {
+    if (e.key.toLowerCase() === 'r') {
+      // reset to original positions
+      for (let i=0;i<PARTICLE_COUNT;i++){
+        const idx = i*3;
+        positions[idx] = startPositions[idx];
+        positions[idx+1] = startPositions[idx+1];
+        positions[idx+2] = startPositions[idx+2];
+        velocities[idx] = (Math.random()-0.5)*0.02;
+        velocities[idx+1] = (Math.random()-0.5)*0.02;
+        velocities[idx+2] = (Math.random()-0.5)*0.02;
+      }
+      particleGeo.getAttribute('position').needsUpdate = true;
+      explosion.time = 0;
+    }
+  });
+
+  </script>
+</body>
+</html>
